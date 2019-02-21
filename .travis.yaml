@@ -1,0 +1,29 @@
+language: 
+  - c
+
+sudo: 
+  - required
+
+compiler:
+  - gcc
+
+os:
+  - linux
+
+dist: 
+  - xenial
+
+before_install:
+  - echo "START INSTALLING UBUNTU TOOLCHAIN ..."
+  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+  - sudo apt-get update -q
+  - sudo apt-get install gcc-4.8 -y
+  - sudo apt-get -y install autoconf automake build-essential libass-dev libfreetype6-dev libtheora-dev libtool libvorbis-dev pkg-config texinfo zlib1g-dev
+  - echo "START INSTALL CUDA TOOLKITS ..."
+
+script: 
+  - echo "SUCCESS"
+
+branches:
+  only:
+    - master

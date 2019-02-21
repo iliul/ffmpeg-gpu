@@ -1,0 +1,114 @@
+language:
+  - c
+
+sudo:
+  - required
+
+compiler:
+  - gcc
+
+os:
+  - linux
+
+dist:
+  - xenial
+
+branches:
+  only:
+    - master
+
+before_install:
+  - echo "START INSTALLING UBUNTU TOOLCHAIN ..."
+  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+  - sudo apt-get update -q
+  - sudo apt-get install gcc-4.8 -y
+  - sudo apt-get -y install autoconf automake build-essential libass-dev
+  - sudo apt-get -y install libfreetype6-dev libtheora-dev libtool libvorbis-dev pkg-config texinfo zlib1g-dev
+  - sudo apt-get -y install apt-transport-https pkg-config texinfo zlib1g-dev cmake
+
+  - echo "PREPARE WORK ENV ..."
+  - sudo mkdir -p /opt/ffmpeg_build
+  - sudo mkdir -p /opt/bin
+
+  - echo "START INSTALLING CUDA TOOLKITS ..."
+  - sudo wget -S https://developer.download.nvidia.cn/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.2.148-1_amd64.deb
+  - sudo dpkg -i cuda-repo-ubuntu1604_9.2.148-1_amd64.deb
+  - sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv F60F4B3D7FA2AF80
+  - sudo apt-get update -y
+  - sudo apt-get install cuda -y
+
+  - echo "START INSTALLING ASSEMBLY COMPILER ..."
+  - pushd nasm-2.13.02
+  - sudo ./autogen.sh
+  - sudo ./configure --prefix="/opt/ffmpeg_build" --bindir="/opt/bin"
+  - sudo make && sudo make install && popd;
+
+  - pushd yasm-1.3.0
+  - sudo ./configure --prefix="/opt/ffmpeg_build" --bindir="/opt/bin"
+  - sudo make && sudo make install && popd;
+
+  - echo "START INSTALLING 3RD LIBRARIES ..."
+  - pushd x264
+  - sudo PKG_CONFIG_PATH="/opt/ffmpeg_build/lib/pkgconfig" ./configure --prefix="/opt/ffmpeg_build" --bindir="/opt/bin" --enable-static
+  - sudo make && sudo make install && popd;
+
+  - echo "INSTALLING X265 ..."
+  - pushd x265/build/linux
+  - sudo cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="/opt/ffmpeg_build" -DENABLE_SHARED:bool=off ../../source
+  - sudo make && sudo make install && popd;
+
+  - echo "INSTALLING FDK-AAC ..."
+  - pushd fdk-aac
+  - sudo autoreconf -fiv
+  - sudo ./configure --prefix="/opt/ffmpeg_build" --disable-shared
+  - sudo make && sudo make install && popd;
+
+  - echo "INSTALLING LAME ..."
+  - pushd lame-3.100
+  - sudo ./configure --prefix="/opt/ffmpeg_build" --bindir="/opt/bin" --disable-shared --enable-nasm
+  - sudo make && sudo make install && popd;
+
+  - echo "INSTALLING OPUS ..."
+  - pushd opus-1.2.1
+  - sudo ./configure --prefix="/opt/ffmpeg_build" --disable-shared
+  - sudo make && sudo make install && popd;
+
+  - echo "INSTALLING LIBOGG ..."
+  - pushd libogg-1.3.3
+  - sudo ./configure --prefix="/opt/ffmpeg_build" --disable-shared
+  - sudo make && sudo make install && popd;
+
+  - echo "INSTALLING LIBVORBIS ..."
+  - pushd libvorbis-1.3.5
+  - sudo ./configure --prefix="/opt/ffmpeg_build" --with-ogg="/opt/ffmpeg_build" --disable-shared
+  - sudo make && sudo make install && popd;
+
+  - echo "INSTALLING LIBVPX ..."
+  - pushd libvpx
+  - sudo ./configure --prefix="/opt/ffmpeg_build" --disable-examples --disable-unit-tests --enable-vp9-highbitdepth --as=yasm
+  - sudo make && sudo make install && popd;
+
+script: 
+  - echo "BUILDING FFMPEG ..."
+  - sudo cd ffmpeg-n4.0
+  - sudo PATH="/opt/bin:$PATH" PKG_CONFIG_PATH="/opt/ffmpeg_build/lib/pkgconfig" ./configure --prefix="/opt/ffmpeg_build" --pkg-config-flags="--static" --extra-cflags="-I/opt/ffmpeg_build/include -I/usr/local/cuda/include" --extra-ldflags="-L/opt/ffmpeg_build/lib -L/usr/local/cuda/lib64" --extra-libs=-lpthread --extra-libs=-lm  --bindir="/opt/bin" --enable-gpl --enable-libfdk_aac --enable-libfreetype --enable-libmp3lame --enable-libopus --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --enable-nonfree --enable-cuda --enable-cuvid --enable-nvenc --enable-libnpp
+  - sudo make
+  - sudo make install
+
+before_deploy:
+  - echo "DEPLOYING RELEASE PACKAGES ..."
+  - sudo mkdir release
+  - sudo tar zcf ffmpeg-gpu-n4.0.tar.gz ffmpeg-n4.0/ffprobe ffmpeg-n4.0/ffmpeg
+  - sudo mv ffmpeg-gpu-n4.0.tar.gz release
+
+deploy:
+  provider: releases
+  skip_cleanup: true
+  overwrite: true
+  api_key:
+    secure: 1aef9dfdf288e34aacaf570ff19e5d52aeb6d183
+  file:
+  - release/ffmpeg-gpu-n4.0.tar.gz
+  on:
+    tags: true
+    repo: iliul/ffmpeg-gpu

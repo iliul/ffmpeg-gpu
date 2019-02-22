@@ -31,11 +31,10 @@ before_install:
   - sudo mkdir -p /opt/bin
 
   - echo "START INSTALLING CUDA TOOLKITS ..."
-  - sudo wget -S https://developer.download.nvidia.cn/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.2.148-1_amd64.deb
-  - sudo dpkg -i cuda-repo-ubuntu1604_9.2.148-1_amd64.deb
+  - sudo dpkg -i cuda-repo/cuda-repo-ubuntu1604_9.2.148-1_amd64.deb
   - sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv F60F4B3D7FA2AF80
   - sudo apt-get update -y
-  - sudo apt-get install cuda -y
+  - sudo apt-get install cuda-9-2 -y
 
   - echo "START INSTALLING ASSEMBLY COMPILER ..."
   - pushd nasm-2.13.02
@@ -48,6 +47,7 @@ before_install:
   - sudo make && sudo make install && popd;
 
   - echo "START INSTALLING 3RD LIBRARIES ..."
+  - echo "INSTALLING X264 ..."
   - pushd x264
   - sudo PKG_CONFIG_PATH="/opt/ffmpeg_build/lib/pkgconfig" ./configure --prefix="/opt/ffmpeg_build" --bindir="/opt/bin" --enable-static
   - sudo make && sudo make install && popd;
@@ -87,6 +87,11 @@ before_install:
   - pushd libvpx
   - sudo ./configure --prefix="/opt/ffmpeg_build" --disable-examples --disable-unit-tests --enable-vp9-highbitdepth --as=yasm
   - sudo make && sudo make install && popd;
+
+  - echo "INSTALLING NV-CODEC-HEADERS ..."
+  - pushd nv-codec-headers
+  - sudo make PREFIX="/opt/ffmpeg_build" BINDDIR="/opt/bin"
+  - sudo make install PREFIX="/opt/ffmpeg_build" BINDDIR="/opt/bin" && popd;
 
 script: 
   - echo "BUILDING FFMPEG ..."
